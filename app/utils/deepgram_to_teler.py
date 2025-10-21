@@ -12,7 +12,7 @@ async def deepgram_to_teler(deepgram_ws, websocket: WebSocket):
     """
     audio_buffer = b""
     chunk_id = 0
-    CHUNK_BUFFER_SIZE = 4000
+    CHUNK_BUFFER_SIZE = 8000
 
     try:
         async for message in deepgram_ws:
