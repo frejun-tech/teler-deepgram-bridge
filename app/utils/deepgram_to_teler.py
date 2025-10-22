@@ -29,7 +29,7 @@ async def deepgram_to_teler(deepgram_ws, websocket: WebSocket):
                             "audio_b64": audio_b64,
                             "chunk_id": chunk_id
                         })
-                        logger.info(f"[deepgram] Sent chunk {chunk_id} ({len(audio_buffer)} bytes)")
+                        logger.debug(f"[deepgram] Sent chunk {chunk_id} ({len(audio_buffer)} bytes)")
                         chunk_id += 1
 
                         audio_buffer = b""
@@ -42,15 +42,15 @@ async def deepgram_to_teler(deepgram_ws, websocket: WebSocket):
                         continue
 
                     msg_type = message_json.get("type")
-                    if msg_type == "ConversationText":
-                        role = message_json.get("role")
-                        content = message_json.get("content")
-                        logger.info(f"{role.capitalize()} Conversation: {content}")
-                    elif msg_type == "UserStartedSpeaking":
+                    if msg_type == "UserStartedSpeaking":
                         audio_buffer = b""
                         await websocket.send_json({"type": "clear"})
+                    elif msg_type == "ConversationText":
+                        role = message_json.get("role")
+                        content = message_json.get("content")
+                        logger.debug(f"{role.capitalize()} Conversation: {content}")
                     elif msg_type == "Warning":
-                        logger.info(f"Agent Warning: {message_json.get('description')}")
+                        logger.debug(f"Agent Warning: {message_json.get('description')}")
                     elif msg_type == "Error":
                         logger.error(f"Deepgram Error: {message_json}")
                     else:
@@ -69,7 +69,7 @@ async def deepgram_to_teler(deepgram_ws, websocket: WebSocket):
                 "audio_b64": audio_b64,
                 "chunk_id": chunk_id
             })
-            logger.info(f"[deepgram] Sent final chunk {chunk_id} ({len(audio_buffer)} bytes)")
+            logger.debug(f"[deepgram] Sent final chunk {chunk_id} ({len(audio_buffer)} bytes)")
             audio_buffer =  b""
 
         if websocket.client_state != WebSocketState.DISCONNECTED:

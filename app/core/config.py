@@ -21,9 +21,6 @@ class Setting(BaseSettings):
     # Teler configuration
     TELER_API_KEY: str = os.getenv("TELER_API_KEY", "")
     
-    # AI and Call Configuration 
-    SYSTEM_MESSAGE: str = "Speak clearly, briefly and concise. Confirm understanding before taking actions."
-    
     # Logging
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     

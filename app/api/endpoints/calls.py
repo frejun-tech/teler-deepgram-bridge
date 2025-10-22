@@ -40,7 +40,7 @@ async def stream_flow(payload: CallFlowRequest):
     stream_flow = {
         "action": "stream",
         "ws_url": ws_url,
-        "chunk_size": 1200,
+        "chunk_size": 800,
         "sample_rate": "8k",  
         "record": True
     }
@@ -93,11 +93,10 @@ async def media_stream(websocket: WebSocket):
             settings.DEEPGRAM_WS_URL,
             additional_headers={"Authorization": f"Token {settings.DEEPGRAM_API_KEY}"}
         ) as deepgram_ws:
-            logger.info("[media-stream] ✅ Successfully connected to Deepgram WebSocket")
+            logger.info("[media-stream] Successfully connected to Deepgram WebSocket")
 
             last_keepalive_time = time.time()
 
-            # Send settings
             agent_settings = {
                 "type": "Settings",
                 "audio": {
@@ -116,27 +115,24 @@ async def media_stream(websocket: WebSocket):
                 }
             }
 
-            logger.info("[media-stream][deepgram] 📤 Sending settings...")
             await deepgram_ws.send(json.dumps(agent_settings))
 
             while True:
                 response_data = json.loads(await deepgram_ws.recv())
-                logger.info(f"[media-stream][deepgram] 📥 Deepgram response: {json.dumps(response_data, indent=2)}")
+                logger.debug(f"[media-stream][deepgram] Deepgram response: {json.dumps(response_data, indent=2)}")
 
                 if response_data.get('type') == 'SettingsApplied':
-                    logger.info(f"[media-stream][deepgram] ✅ Settings Applied")
+                    logger.info(f"[media-stream][deepgram] Settings Applied")
                     break
                 
                 elif response_data.get('type') == 'Error':
-                    logger.info(f"[media-stream][deepgram] ❌ Error from Deepgram: {response_data}")
+                    logger.info(f"[media-stream][deepgram] Error from Deepgram: {response_data}")
                 else:
-                    logger.info(f"[media-stream][deepgram] ℹ️ Received event: {response_data.get('type')}")
+                    logger.info(f"[media-stream][deepgram] Received event: {response_data.get('type')}")
 
             if time.time() - last_keepalive_time > 8:
                 await deepgram_ws.send(json.dumps({"type": "KeepAlive"}))
                 last_keepalive_time = time.time()
-
-            logger.info("[media-stream][deepgram] 🎤 Starting bidirectional streaming...")
 
             recv_task = asyncio.create_task(
                 teler_to_deepgram(deepgram_ws, websocket), 
@@ -157,10 +153,10 @@ async def media_stream(websocket: WebSocket):
                     if task.exception():
                         logger.error(f"Task {task.get_name()} failed: {task.exception()}")
                     else:
-                        logger.info(f"Task {task.get_name()} completed successfully")
+                        logger.debug(f"Task {task.get_name()} completed successfully")
 
                 for task in pending:
-                    logger.info(f"Canceling task {task.get_name()}")
+                    logger.debug(f"Canceling task {task.get_name()}")
                     task.cancel()
                     try:
                         await task
@@ -172,18 +168,18 @@ async def media_stream(websocket: WebSocket):
 
 
     except WebSocketDisconnect:
-        logger.info("[media-stream] ⚠️ Teler WebSocket disconnected — closing Deepgram connection...")
+        logger.info("[media-stream] Teler WebSocket disconnected — closing Deepgram connection...")
         if deepgram_ws and not deepgram_ws.closed:
             await deepgram_ws.close()
-            logger.info("[media-stream] ✅ Deepgram connection closed after Teler disconnect")
+            logger.info("[media-stream] Deepgram connection closed after Teler disconnect")
 
     except websockets.exceptions.InvalidStatusCode as e:
-        logger.error(f"[media-stream] ❌ WebSocket connection failed with status {e.status_code}: {e}")
+        logger.error(f"[media-stream] WebSocket connection failed with status {e.status_code}: {e}")
         if e.status_code == 403:
-            logger.error("[media-stream] 🔍 Invalid API key or permission issue.")
+            logger.error("[media-stream] Invalid API key or permission issue.")
     except Exception as e:
-        logger.error(f"[media-stream] ❌ Top-level error: {type(e).__name__}: {e}")
+        logger.error(f"[media-stream] Top-level error: {type(e).__name__}: {e}")
     finally:
         if websocket.client_state != WebSocketState.DISCONNECTED:
             await websocket.close()
-        logger.info("[media-stream] 🔄 Connection closed.")
+        logger.info("[media-stream] Connection closed.")
