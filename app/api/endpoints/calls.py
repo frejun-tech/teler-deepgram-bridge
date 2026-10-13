@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.core.config import settings
 from app.utils.teler_to_deepgram import teler_to_deepgram
 from app.utils.deepgram_to_teler import deepgram_to_teler
-from app.utils.teler_client import TelerClient
+from teler import AsyncClient, CallFlow
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -37,14 +37,14 @@ async def stream_flow(payload: CallFlowRequest):
     Return stream flow as JSON Response containing websocket url to connect
     """
     ws_url = f"wss://{settings.SERVER_DOMAIN}/api/v1/calls/media-stream"
-    stream_flow = {
-        "action": "stream",
-        "ws_url": ws_url,
-        "chunk_size": 800,
-        "sample_rate": "8k",  
-        "record": True
-    }
-    return JSONResponse(stream_flow)
+    return JSONResponse(
+        CallFlow.stream(
+            ws_url=ws_url,
+            sample_rate="8k",
+            chunk_size=800,
+            record=True,
+        )
+    )
 
 @router.post("/initiate-call", status_code=status.HTTP_200_OK)
 async def initiate_call(call_request: CallRequest):
@@ -57,14 +57,14 @@ async def initiate_call(call_request: CallRequest):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="deepgram_API_KEY not configured"
             )
-        teler_client = TelerClient(api_key=settings.TELER_API_KEY)
-        call = await teler_client.create_call(
-            from_number=call_request.from_number,
-            to_number=call_request.to_number,
-            flow_url=f"https://{settings.SERVER_DOMAIN}/api/v1/calls/flow",
-            status_callback_url=f"https://{settings.SERVER_DOMAIN}/api/v1/webhooks/receiver",
-            record=True,
-        )
+        async with AsyncClient(api_key=settings.TELER_API_KEY, timeout=10) as client:
+            call = await client.voice.calls.create(
+                from_number=call_request.from_number,
+                to_number=call_request.to_number,
+                flow_url=f"https://{settings.SERVER_DOMAIN}/api/v1/calls/flow",
+                status_callback_url=f"https://{settings.SERVER_DOMAIN}/api/v1/webhooks/receiver",
+                record=True,
+            )
         logger.info(f"Call created: {call}")
         return JSONResponse(content={"success": True, "call_id": call.id})
     except Exception as e:
